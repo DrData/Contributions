@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -12,8 +13,7 @@ import (
 
 // Structs
 type CONTRIBYDAY struct {
-	DayIndex      int
-	Contriubtions int
+	DayIndex int
 }
 
 type CONTRIBYDAYS []CONTRIBYDAY
@@ -99,12 +99,12 @@ func GetContributionsIssues(user UserData, params InputParams) []CONTRIBYDAY {
 		}
 
 		c := []CONTRIBYDAY{}
-		fmt.Printf("num issues %d\n", len(issues))
+		//fmt.Printf("num issues %d\n", len(issues))
 		for i := 0; i < len(issues); i++ {
 			if !issues[i].Repository.Fork {
 				day := DaysBetween(params.StartDate, issues[i].CreatedAt)
-				fmt.Printf("ID: %d, DateTime: %s, Duration(d): %d\n", issues[i].ID, issues[i].CreatedAt, day)
-				c = append(c, CONTRIBYDAY{day, 1})
+				//fmt.Printf("ID: %d, DateTime: %s, Duration(d): %d\n", issues[i].ID, issues[i].CreatedAt, day)
+				c = append(c, CONTRIBYDAY{day})
 			}
 		}
 		return c
@@ -141,8 +141,8 @@ func GetContributionsPulls(user UserData, params InputParams) []CONTRIBYDAY {
 		for i := 0; i < len(pulls); i++ {
 			if true {
 				day := DaysBetween(params.StartDate, pulls[i].CreatedAt)
-				fmt.Printf("ID: %d, DateTime: %s, Duration(d): %d\n", pulls[i].ID, pulls[i].CreatedAt, day)
-				c = append(c, CONTRIBYDAY{day, 1})
+				//fmt.Printf("ID: %d, DateTime: %s, Duration(d): %d\n", pulls[i].ID, pulls[i].CreatedAt, day)
+				c = append(c, CONTRIBYDAY{day})
 			}
 		}
 		return c
@@ -221,7 +221,7 @@ func CountCommitsRepo(user UserData, repo REPO, params InputParams) []CONTRIBYDA
 					// Check criteria for commits
 					if ValidCommitContribution(commits[j], repo, user) {
 						day := DaysBetween(params.StartDate, commits[j].Commit.Author.Date)
-						c := CONTRIBYDAY{day, 1}
+						c := CONTRIBYDAY{day}
 						contribs = append(contribs, c)
 					}
 				}
@@ -233,9 +233,9 @@ func CountCommitsRepo(user UserData, repo REPO, params InputParams) []CONTRIBYDA
 
 // GetContributionsCommits : gets contributions via commits
 func GetContributionsCommits(user UserData, params InputParams) []CONTRIBYDAY {
-	fmt.Println("GetContributionsCommits")
+	//fmt.Printfmt.Println("GetContributionsCommits")
 	sURI := BuildRepositoryListCmd(user.Owner)
-	fmt.Println(sURI)
+	//fmt.Println(sURI)
 	bodyBytes := RetrieveGitHubData(user, sURI, true)
 	if bodyBytes == nil {
 		fmt.Println("nil bodyBytes")
@@ -267,7 +267,7 @@ func GetContributionsCommits(user UserData, params InputParams) []CONTRIBYDAY {
 
 		// Send out jobs
 		for i := 0; i < nrepos; i++ {
-			fmt.Println(repos[i].Name)
+			//fmt.Println(repos[i].Name)
 			jobs <- repos[i]
 		}
 		close(jobs)
@@ -289,7 +289,11 @@ func GetContributionsCommits(user UserData, params InputParams) []CONTRIBYDAY {
 func GetUserInfo(user *UserData) {
 	sURI := "https://api.github.com/user/emails"
 	bodyBytes := RetrieveGitHubData(*user, sURI, true)
-	fmt.Printf("getemails bb: %d\n", len(bodyBytes))
+	//fmt.Printf("getemails bb: %d\n", len(bodyBytes))
+	if len(bodyBytes) == 0 {
+		panic("Error getting email addresses. Login info may be incorrect")
+
+	}
 	var emails EMAILS
 	err := json.Unmarshal([]byte(bodyBytes), &emails)
 	checkerror(err)
@@ -303,19 +307,29 @@ func GetUserInfo(user *UserData) {
 
 func main() {
 
-	//	user := UserData{Owner: <username>, UserName: <username>, PassWord: <password>}
-	user := UserData{Owner: "vmg", UserName: "vmg", PassWord: "DontKnow"}
+	if len(os.Args) != 4 {
+		fmt.Println("Usage: ./Contributions <Github ownername> <username> <password>")
+		fmt.Println("  Note: <ownername> and username> maybe same.")
+		fmt.Println("        <password> with special characters will need to be escaped, e.g. ! -> \\!")
+		return
+	}
+	owner := os.Args[1]
+	uname := os.Args[2]
+	pwd := os.Args[3]
 
-	// Get information for later
+	user := UserData{Owner: owner, UserName: uname, PassWord: pwd}
+
+	// Get information for later,e.g. user emails
 	GetUserInfo(&user)
 
+	// Setup the time parameters
 	// Current time
 	t1 := time.Now()
-
 	// 365 days ago <- -1 year + 1 day
 	t0 := t1.AddDate(0, 0, -356)
 	params := InputParams{StartDate: t0, EndDate: t1}
 
+	// Setup for parallelized data retrival
 	var wg sync.WaitGroup
 
 	wg.Add(3)
@@ -347,7 +361,7 @@ func main() {
 	}
 
 	for _, c := range contribCommits {
-		vContribs[c.DayIndex] += c.Contriubtions
+		vContribs[c.DayIndex]++
 	}
 
 	for _, c := range contribIssues {
@@ -358,6 +372,7 @@ func main() {
 		vContribs[c.DayIndex]++
 	}
 
+	// Write out result
 	fmt.Printf("[")
 	for i := 0; i < len(vContribs); i++ {
 		fmt.Printf("%d", vContribs[i])
