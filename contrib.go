@@ -195,7 +195,6 @@ func ValidCommitContribution(commit COMMIT, repo REPO, user UserData) bool {
 
 	bok := false
 	if (ValidEmail(user, strings.ToLower(commit.Commit.Author.Email))) && (!repo.Fork) && (repo.DefaultBranch == "master") {
-		//if (!repo.Fork) && (repo.DefaultBranch == "master") {
 		bok = true
 	}
 	return bok
@@ -233,7 +232,7 @@ func CountCommitsRepo(user UserData, repo REPO, params InputParams) []CONTRIBYDA
 
 // GetContributionsCommits : gets contributions via commits
 func GetContributionsCommits(user UserData, params InputParams) []CONTRIBYDAY {
-	//fmt.Printfmt.Println("GetContributionsCommits")
+	//fmt.Printf.Println("GetContributionsCommits")
 	sURI := BuildRepositoryListCmd(user.Owner)
 	//fmt.Println(sURI)
 	bodyBytes := RetrieveGitHubData(user, sURI, true)
@@ -324,9 +323,15 @@ func main() {
 
 	// Setup the time parameters
 	// Current time
-	t1 := time.Now()
+	loc, _ := time.LoadLocation("UTC")
+	t1 := time.Now().In(loc)
 	// 365 days ago <- -1 year + 1 day
-	t0 := t1.AddDate(0, 0, -356)
+	t0 := t1.AddDate(0, 0, -365)
+
+	//fmt.Printf("%s\n", t0.Format(time.RFC3339))
+	//fmt.Printf("%s\n", t1.Format(time.RFC3339))
+	//fmt.Printf("%s\n", time.Now().Format(time.RFC3339))
+
 	params := InputParams{StartDate: t0, EndDate: t1}
 
 	// Setup for parallelized data retrival
