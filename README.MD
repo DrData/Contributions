@@ -12,3 +12,10 @@ User the following tool to generate json go struct for marshalling
 https://mholt.github.io/json-to-go/
 
 Used various websites for golang.
+
+
+Command line To Run:
+./Contributions <owner> <username> <password>
+
+<owner> and <username> may be the same.
+<password> is not hidden
